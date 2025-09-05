@@ -1,0 +1,35 @@
+name: Convert DOCX to PDF and Markdown
+
+on:
+  push:
+    paths:
+      - '**.docx'   # Run only when .docx files are uploaded/changed
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install LibreOffice and Pandoc
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libreoffice pandoc
+
+      - name: Convert DOCX files
+        run: |
+          for file in $(find . -name "*.docx"); do
+            base="${file%.docx}"
+            libreoffice --headless --convert-to pdf "$file" --outdir "$(dirname "$file")"
+            pandoc "$file" -o "${base}.md"
+          done
+
+      - name: Commit converted files
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          git add .
+          git commit -m "Auto-converted DOCX to PDF/Markdown" || echo "No changes to commit"
+          git push
