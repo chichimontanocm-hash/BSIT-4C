@@ -1,0 +1,44 @@
+name: Convert DOCX to PDF, Markdown, and Google Docs link
+
+on:
+  push:
+    paths:
+      - '**.docx'
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install LibreOffice and Pandoc
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libreoffice pandoc
+
+      - name: Convert DOCX files
+        run: |
+          for file in $(find . -name "*.docx"); do
+            base="${file%.docx}"
+            libreoffice --headless --convert-to pdf "$file" --outdir "$(dirname "$file")"
+            pandoc "$file" -o "${base}.md"
+          done
+
+      - name: Generate Google Docs Viewer links
+        run: |
+          echo "# Document Viewer Links" > DOCX_PREVIEW.md
+          for file in $(find . -name "*.docx"); do
+            raw_url="https://github.com/${{ github.repository }}/raw/${{ github.ref_name }}/$file"
+            gview_url="https://docs.google.com/gview?url=${raw_url}&embedded=true"
+            echo "- [$file]($gview_url)" >> DOCX_PREVIEW.md
+          done
+
+      - name: Commit converted files + preview links
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          git add .
+          git commit -m "Auto-converted DOCX and added preview links" || echo "No changes to commit"
+          git push
